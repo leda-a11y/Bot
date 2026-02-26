@@ -79,22 +79,21 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
+    .setName("unmarkeri")
+    .setDescription("Ukloni marker korisniku")
+    .addUserOption(option =>
+      option.setName("korisnik")
+        .setDescription("Izaberi korisnika")
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
     .setName("ocisti")
     .setDescription("Dodaj očišćeni marker"),
 
   new SlashCommandBuilder()
     .setName("status")
     .setDescription("Provjeri status markera")
-  
-  new SlashCommandBuilder()
-  .setName("unmarkeri")
-  .setDescription("Ukloni marker korisniku")
-  .addUserOption(option =>
-    option.setName("korisnik")
-      .setDescription("Izaberi korisnika")
-      .setRequired(true))
-  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
-
 ];
 
 /* ==============================
@@ -148,7 +147,7 @@ client.on("interactionCreate", async interaction => {
       await member.roles.add(role);
     } catch (err) {
       return interaction.reply({
-        content: "❌ Bot nema dozvolu za dodavanje role (provjeri hijerarhiju i Manage Roles).",
+        content: "❌ Bot nema dozvolu za dodavanje role.",
         ephemeral: true
       });
     }
@@ -170,14 +169,49 @@ client.on("interactionCreate", async interaction => {
     );
   }
 
-  /* ===== OCISTI ===== */
+  /* ===== UNMARKERI (ADMIN) ===== */
+
+  if (commandName === "unmarkeri") {
+
+    const korisnik = interaction.options.getUser("korisnik");
+    const member = await interaction.guild.members.fetch(korisnik.id);
+
+    if (!userData[korisnik.id]) {
+      return interaction.reply({
+        content: "❌ Taj korisnik nema aktivan marker.",
+        ephemeral: true
+      });
+    }
+
+    try {
+      await member.roles.remove(role);
+    } catch (err) {
+      return interaction.reply({
+        content: "❌ Bot nema dozvolu za uklanjanje role.",
+        ephemeral: true
+      });
+    }
+
+    delete userData[korisnik.id];
+    saveData();
+
+    await interaction.reply({
+      content: `🗑️ Marker uklonjen za ${korisnik}.`,
+      ephemeral: true
+    });
+
+    log(interaction.guild,
+      `🗑️ ${interaction.user.tag} uklonio marker za ${korisnik.tag}`
+    );
+  }
+
+  /* ===== OCISTI (JAVNO) ===== */
 
   if (commandName === "ocisti") {
 
     if (!userData[userId]) {
       return interaction.reply({
-        content: "❌ Nemaš aktivan marker.",
-        ephemeral: true
+        content: "❌ Nemaš aktivan marker."
       });
     }
 
@@ -201,56 +235,18 @@ client.on("interactionCreate", async interaction => {
       saveData();
 
       return interaction.reply({
-      content: `🎉 ${interaction.user} je završio sve markere!`
+        content: `🎉 ${interaction.user} je završio sve markere!`
       });
-
     }
 
     saveData();
 
     await interaction.reply({
-    content: `🧹 ${interaction.user} napredak: ${userData[userId].current}/${userData[userId].required}`
-    });
-
-  }
-
-  /* ===== UNMARKERI (ADMIN) ===== */
-
-if (commandName === "unmarkeri") {
-
-  const korisnik = interaction.options.getUser("korisnik");
-  const member = await interaction.guild.members.fetch(korisnik.id);
-
-  if (!userData[korisnik.id]) {
-    return interaction.reply({
-      content: "❌ Taj korisnik nema aktivan marker.",
-      ephemeral: true
+      content: `🧹 ${interaction.user} napredak: ${userData[userId].current}/${userData[userId].required}`
     });
   }
 
-  try {
-    await member.roles.remove(role);
-  } catch (err) {
-    return interaction.reply({
-      content: "❌ Bot nema dozvolu za uklanjanje role.",
-      ephemeral: true
-    });
-  }
-
-  delete userData[korisnik.id];
-  saveData();
-
-  await interaction.reply({
-    content: `✅ Marker uklonjen za ${korisnik}.`,
-    ephemeral: true
-  });
-
-  log(interaction.guild,
-    `🗑️ ${interaction.user.tag} uklonio marker za ${korisnik.tag}`
-  );
-}
-
-  /* ===== STATUS ===== */
+  /* ===== STATUS (PRIVATNO) ===== */
 
   if (commandName === "status") {
 
@@ -273,6 +269,7 @@ if (commandName === "unmarkeri") {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
