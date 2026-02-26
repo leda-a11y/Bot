@@ -91,15 +91,18 @@ const rest = new REST({ version: "10" }).setToken(TOKEN);
    🚀 BOT READY
 ============================== */
 
-client.once("ready", async () => {
-  console.log(`✅ Bot prijavljen kao ${client.user.tag}`);
+client.once("clientReady", async () => {
+  console.log(`✅ Bot online kao ${client.user.tag}`);
 
   try {
+    const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
     await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
+      Routes.applicationCommands(process.env.CLIENT_ID),
       { body: commands }
     );
-    console.log("✅ Global slash komande registrovane.");
+
+    console.log("✅ Slash komande registrovane.");
   } catch (err) {
     console.error("❌ Greška pri registraciji komandi:", err);
   }
@@ -204,6 +207,7 @@ client.on("interactionCreate", async interaction => {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
