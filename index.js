@@ -5,27 +5,44 @@ const {
   PermissionFlagsBits,
   REST,
   Routes
-} = require('discord.js');
-const fs = require('fs');
-const express = require('express');
+} = require("discord.js");
+const fs = require("fs");
+const express = require("express");
 
-/* =========================
-   🔐 UBACI SVOJE PODATKE
-========================= */
+/* ==============================
+   🔐 ENVIRONMENT VARIABLES
+============================== */
 
-const TOKEN = "MTQ3NjM0MjQxMDQwODYyODI3NA.G51GoY.Wu4Swd_TY7YFZWbWn4T5Sk7eO539N4FaFnqLfk";
-const CLIENT_ID = "1476342410408628274";
+const TOKEN = process.env.TOKEN;
+const CLIENT_ID = process.env.CLIENT_ID;
 const LOG_CHANNEL_ID = "1476647523539226785";
 
-/* ========================= */
+/* ============================== */
+
+if (!TOKEN || !CLIENT_ID) {
+  console.error("❌ TOKEN ili CLIENT_ID nije postavljen!");
+  process.exit(1);
+}
+
+/* ==============================
+   🌍 KEEP ALIVE (Render)
+============================== */
 
 const app = express();
 app.get("/", (req, res) => res.send("Bot is alive!"));
-app.listen(3000, () => console.log("Web server ready"));
+app.listen(3000, () => console.log("🌍 Web server ready"));
+
+/* ==============================
+   🤖 DISCORD CLIENT
+============================== */
 
 const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
+
+/* ==============================
+   💾 DATA SYSTEM
+============================== */
 
 let userData = {};
 if (fs.existsSync("data.json")) {
@@ -41,51 +58,68 @@ function log(guild, message) {
   if (channel) channel.send(message);
 }
 
+/* ==============================
+   📜 SLASH COMMANDS
+============================== */
+
 const commands = [
   new SlashCommandBuilder()
-    .setName('markeri')
-    .setDescription('Postavi marker korisniku')
+    .setName("markeri")
+    .setDescription("Postavi marker korisniku")
     .addUserOption(option =>
-      option.setName('korisnik')
-        .setDescription('Izaberi korisnika')
+      option.setName("korisnik")
+        .setDescription("Izaberi korisnika")
         .setRequired(true))
     .addIntegerOption(option =>
-      option.setName('kolicina')
-        .setDescription('Koliko markera treba')
+      option.setName("kolicina")
+        .setDescription("Koliko markera treba")
         .setRequired(true))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
-    .setName('ocisti')
-    .setDescription('Dodaj očišćeni marker'),
+    .setName("ocisti")
+    .setDescription("Dodaj očišćeni marker"),
 
   new SlashCommandBuilder()
-    .setName('status')
-    .setDescription('Provjeri status markera')
+    .setName("status")
+    .setDescription("Provjeri status markera")
 ];
 
-const rest = new REST({ version: '10' }).setToken(TOKEN);
+const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-client.once('ready', async () => {
-  console.log(`Bot prijavljen kao ${client.user.tag}`);
+/* ==============================
+   🚀 BOT READY
+============================== */
 
-  await rest.put(
-    Routes.applicationCommands(CLIENT_ID),
-    { body: commands }
-  );
+client.once("ready", async () => {
+  console.log(`✅ Bot prijavljen kao ${client.user.tag}`);
 
-  console.log("✅ Global slash komande registrovane.");
+  try {
+    await rest.put(
+      Routes.applicationCommands(CLIENT_ID),
+      { body: commands }
+    );
+    console.log("✅ Global slash komande registrovane.");
+  } catch (err) {
+    console.error("❌ Greška pri registraciji komandi:", err);
+  }
 });
 
-client.on('interactionCreate', async interaction => {
+/* ==============================
+   🎮 COMMAND HANDLER
+============================== */
+
+client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
   const userId = interaction.user.id;
 
-  if (commandName === 'markeri') {
-    const korisnik = interaction.options.getUser('korisnik');
-    const kolicina = interaction.options.getInteger('kolicina');
+  /* ===== MARKERI (ADMIN) ===== */
+
+  if (commandName === "markeri") {
+    const korisnik = interaction.options.getUser("korisnik");
+    const kolicina = interaction.options.getInteger("kolicina");
 
     userData[korisnik.id] = {
       current: 0,
@@ -99,10 +133,14 @@ client.on('interactionCreate', async interaction => {
       ephemeral: true
     });
 
-    log(interaction.guild, `📌 ${interaction.user.tag} postavio ${kolicina} markera za ${korisnik.tag}`);
+    log(interaction.guild,
+      `📌 ${interaction.user.tag} postavio ${kolicina} markera za ${korisnik.tag}`
+    );
   }
 
-  if (commandName === 'ocisti') {
+  /* ===== OCISTI ===== */
+
+  if (commandName === "ocisti") {
 
     if (
       !userData[userId] ||
@@ -118,7 +156,9 @@ client.on('interactionCreate', async interaction => {
     userData[userId].current++;
 
     if (userData[userId].current >= userData[userId].required) {
-      log(interaction.guild, `🎉 ${interaction.user.tag} završio sve markere!`);
+      log(interaction.guild,
+        `🎉 ${interaction.user.tag} završio sve markere!`
+      );
 
       delete userData[userId];
       saveData();
@@ -137,7 +177,9 @@ client.on('interactionCreate', async interaction => {
     });
   }
 
-  if (commandName === 'status') {
+  /* ===== STATUS ===== */
+
+  if (commandName === "status") {
 
     if (
       !userData[userId] ||
@@ -156,5 +198,9 @@ client.on('interactionCreate', async interaction => {
     });
   }
 });
+
+/* ==============================
+   🔐 LOGIN
+============================== */
 
 client.login(TOKEN);
