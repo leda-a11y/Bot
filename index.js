@@ -5,16 +5,13 @@ const {
   PermissionFlagsBits,
   REST,
   Routes,
-  EmbedBuilder,
-  ActionRowBuilder,
-  ButtonBuilder,
-  ButtonStyle
+  EmbedBuilder
 } = require("discord.js");
 const fs = require("fs");
 const express = require("express");
 
 /* ==============================
-   🔐 ENVIRONMENT VARIABLES
+    🌌 LEDA MARKERI — GLOBALNE VAR
 ============================== */
 
 const TOKEN = process.env.DISCORD_TOKEN;
@@ -22,8 +19,11 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const LOG_CHANNEL_ID = "1476647523539226785";
 const ROLE_ID = "1476339229230370836";
 
+const NEON_COLOR = "#8A2BE2"; // 💜 Neon Purple glavna boja
+const NEON_ACCENT = "#00E5FF"; // 🔵 Neon Cyan
+
 if (!TOKEN || !CLIENT_ID) {
-  console.error("❌ DISCORD_TOKEN ili CLIENT_ID nije postavljen!");
+  console.error("❌ DISCORD_TOKEN ili CLIENT_ID nije setovan!");
   process.exit(1);
 }
 
@@ -32,8 +32,8 @@ if (!TOKEN || !CLIENT_ID) {
 ============================== */
 
 const app = express();
-app.get("/", (req, res) => res.send("Bot is alive!"));
-app.listen(3000, () => console.log("🌍 Web server ready"));
+app.get("/", (req, res) => res.send("Leda Markeri bot radi 🔥"));
+app.listen(3000, () => console.log("🌍 Web server aktivan"));
 
 /* ==============================
    🤖 DISCORD CLIENT
@@ -47,41 +47,34 @@ const client = new Client({
 });
 
 /* ==============================
-   🎨 EMBED FACTORY
+   🎨 NEON EMBED FACTORY
 ============================== */
 
-function successEmbed(title, desc) {
+function neonEmbed(title, desc, emoji = "✨") {
   return new EmbedBuilder()
-    .setColor("#28A745")
-    .setTitle(`🟢 ${title}`)
+    .setColor(NEON_COLOR)
+    .setAuthor({
+      name: "🌌 Leda Markeri — NEON System",
+    })
+    .setTitle(`${emoji} ${title}`)
     .setDescription(desc)
-    .setTimestamp();
-}
-
-function errorEmbed(title, desc) {
-  return new EmbedBuilder()
-    .setColor("#DC3545")
-    .setTitle(`❌ ${title}`)
-    .setDescription(desc)
-    .setTimestamp();
-}
-
-function infoEmbed(title, desc) {
-  return new EmbedBuilder()
-    .setColor("#007BFF")
-    .setTitle(`📘 ${title}`)
-    .setDescription(desc)
+    .setThumbnail("https://i.imgur.com/eHl6C3S.png") // neon icon
+    .setFooter({
+      text: "🌙 Leda Markeri • Neon Edition",
+    })
     .setTimestamp();
 }
 
 function progressEmbed(user, current, required) {
   return new EmbedBuilder()
-    .setColor("#F8C300")
-    .setTitle("🧹 Napredak čišćenja")
+    .setColor(NEON_ACCENT)
+    .setAuthor({ name: "🔧 Napredak čišćenja — Leda NEON" })
     .setDescription(`
-**Korisnik:** ${user}
-**Progres:** \`${current}/${required}\`
-    `)
+🌐 **Korisnik:** ${user}
+⚡ **Progres:** \`${current}/${required}\`
+`)
+    .setThumbnail("https://i.imgur.com/eHl6C3S.png")
+    .setFooter({ text: "Nastavi tako! 🔥" })
     .setTimestamp();
 }
 
@@ -110,25 +103,11 @@ function log(guild, message) {
 const commands = [
   new SlashCommandBuilder()
     .setName("markeri")
-    .setDescription("Postavi marker korisniku")
-    .addUserOption(option =>
-      option.setName("korisnik")
-        .setDescription("Izaberi korisnika")
-        .setRequired(true))
-    .addIntegerOption(option =>
-      option.setName("kolicina")
-        .setDescription("Koliko markera treba")
-        .setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription("Postavi marker korisniku"),
 
   new SlashCommandBuilder()
     .setName("unmarkeri")
-    .setDescription("Ukloni marker korisniku")
-    .addUserOption(option =>
-      option.setName("korisnik")
-        .setDescription("Izaberi korisnika")
-        .setRequired(true))
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+    .setDescription("Ukloni marker korisniku"),
 
   new SlashCommandBuilder()
     .setName("ocisti")
@@ -136,7 +115,7 @@ const commands = [
 
   new SlashCommandBuilder()
     .setName("status")
-    .setDescription("Provjeri status markera")
+    .setDescription("Provjeri status markera"),
 ];
 
 /* ==============================
@@ -144,7 +123,7 @@ const commands = [
 ============================== */
 
 client.once("ready", async () => {
-  console.log(`✅ Bot online kao ${client.user.tag}`);
+  console.log(`🌌 LEDA MARKERI ONLINE kao ${client.user.tag}`);
 
   try {
     const rest = new REST({ version: "10" }).setToken(TOKEN);
@@ -154,9 +133,9 @@ client.once("ready", async () => {
       { body: commands }
     );
 
-    console.log("✅ Slash komande registrovane.");
+    console.log("⚡ Komande registrovane (NEON MODE).");
   } catch (err) {
-    console.error("❌ Greška pri registraciji komandi:", err);
+    console.error("❌ Greška:", err);
   }
 });
 
@@ -172,14 +151,7 @@ client.on("interactionCreate", async interaction => {
 
   const role = interaction.guild.roles.cache.get(ROLE_ID);
 
-  if (!role) {
-    return interaction.reply({
-      embeds: [errorEmbed("Role greška", "Marker rola ne postoji (pogrešan ROLE_ID).")],
-      ephemeral: true
-    });
-  }
-
-  /* ===== MARKERI (ADMIN) ===== */
+  /* ====== MARKERI ====== */
 
   if (commandName === "markeri") {
     const korisnik = interaction.options.getUser("korisnik");
@@ -188,9 +160,9 @@ client.on("interactionCreate", async interaction => {
 
     try {
       await member.roles.add(role);
-    } catch (err) {
+    } catch {
       return interaction.reply({
-        embeds: [errorEmbed("Nedovoljno dozvola", "Bot nema ovlašćenje da dodaje role.")],
+        embeds: [neonEmbed("Nedovoljno dozvola", "Bot ne može dodati rolu.", "⚠")],
         ephemeral: true
       });
     }
@@ -198,11 +170,12 @@ client.on("interactionCreate", async interaction => {
     userData[korisnik.id] = { current: 0, required: kolicina };
     saveData();
 
-    await interaction.reply({
+    interaction.reply({
       embeds: [
-        successEmbed(
+        neonEmbed(
           "Marker postavljen",
-          `${korisnik} sada ima zadatak da očisti **${kolicina}** markera.`
+          `${korisnik} mora očistiti **${kolicina}** markera.`,
+          "📌"
         )
       ],
       ephemeral: true
@@ -211,7 +184,7 @@ client.on("interactionCreate", async interaction => {
     log(interaction.guild, `📌 ${interaction.user.tag} postavio ${kolicina} markera za ${korisnik.tag}`);
   }
 
-  /* ===== UNMARKERI (ADMIN) ===== */
+  /* ====== UNMARKERI ====== */
 
   if (commandName === "unmarkeri") {
     const korisnik = interaction.options.getUser("korisnik");
@@ -219,16 +192,16 @@ client.on("interactionCreate", async interaction => {
 
     if (!userData[korisnik.id]) {
       return interaction.reply({
-        embeds: [errorEmbed("Greška", "Taj korisnik nema aktivan marker.")],
+        embeds: [neonEmbed("Greška", "Korisnik nema aktivan marker.", "❌")],
         ephemeral: true
       });
     }
 
     try {
       await member.roles.remove(role);
-    } catch (err) {
+    } catch {
       return interaction.reply({
-        embeds: [errorEmbed("Nedovoljno dozvola", "Bot ne može ukloniti rolu.")],
+        embeds: [neonEmbed("Greška", "Bot ne može ukloniti rolu.", "⚠")],
         ephemeral: true
       });
     }
@@ -236,21 +209,19 @@ client.on("interactionCreate", async interaction => {
     delete userData[korisnik.id];
     saveData();
 
-    await interaction.reply({
-      embeds: [infoEmbed("Marker uklonjen", `Marker je uklonjen za ${korisnik}.`)],
+    interaction.reply({
+      embeds: [neonEmbed("Marker uklonjen", `Marker uklonjen za ${korisnik}.`, "🗑️")],
       ephemeral: true
     });
 
     log(interaction.guild, `🗑️ ${interaction.user.tag} uklonio marker za ${korisnik.tag}`);
   }
 
-  /* ===== OCISTI (JAVNO) ===== */
+  /* ====== OCISTI ====== */
 
   if (commandName === "ocisti") {
     if (!userData[userId]) {
-      return interaction.reply({
-        embeds: [errorEmbed("Nemaš marker", "Trenutno nemaš aktivan marker.")]
-      });
+      return interaction.reply({ embeds: [neonEmbed("Nemaš marker", "Nemaš aktivan marker.")] });
     }
 
     userData[userId].current++;
@@ -260,23 +231,19 @@ client.on("interactionCreate", async interaction => {
 
       try {
         await member.roles.remove(role);
-      } catch (err) {
-        console.error("Greška pri uklanjanju role:", err);
-      }
-
-      log(interaction.guild, `🎉 ${interaction.user.tag} završio sve markere!`);
+      } catch {}
 
       delete userData[userId];
       saveData();
 
       return interaction.reply({
-        embeds: [successEmbed("Završeno!", `${interaction.user} je završio sve markere!`)]
+        embeds: [neonEmbed("Svi markeri očišćeni!", `${interaction.user} je završio sve!`, "🎉")]
       });
     }
 
     saveData();
 
-    await interaction.reply({
+    interaction.reply({
       embeds: [
         progressEmbed(
           interaction.user,
@@ -287,21 +254,22 @@ client.on("interactionCreate", async interaction => {
     });
   }
 
-  /* ===== STATUS (PRIVATNO) ===== */
+  /* ====== STATUS ====== */
 
   if (commandName === "status") {
     if (!userData[userId]) {
       return interaction.reply({
-        embeds: [errorEmbed("Nemaš marker", "Trenutno nemaš aktivan marker.")],
+        embeds: [neonEmbed("Nemaš marker", "Nemaš dodijeljen marker.", "❌")],
         ephemeral: true
       });
     }
 
-    await interaction.reply({
+    interaction.reply({
       embeds: [
-        infoEmbed(
-          "Status markera",
-          `**Trenutni progres:** \`${userData[userId].current}/${userData[userId].required}\``
+        neonEmbed(
+          "Tvoj status markera",
+          `Progres: \`${userData[userId].current}/${userData[userId].required}\``,
+          "📊"
         )
       ],
       ephemeral: true
