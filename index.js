@@ -1,231 +1,160 @@
-// ================== IMPORTS ==================
 const {
   Client,
   GatewayIntentBits,
-  PermissionsBitField,
   SlashCommandBuilder,
+  PermissionFlagsBits,
   REST,
   Routes
-} = require("discord.js");
+} = require('discord.js');
+const fs = require('fs');
+const express = require('express');
 
-const express = require("express");
-const fs = require("fs");
+/* =========================
+   🔐 UBACI SVOJE PODATKE
+========================= */
 
-// ================== EXPRESS ==================
+const TOKEN = "MTQ3NjM0MjQxMDQwODYyODI3NA.G51GoY.Wu4Swd_TY7YFZWbWn4T5Sk7eO539N4FaFnqLfk";
+const CLIENT_ID = "1476342410408628274";
+const LOG_CHANNEL_ID = "1476647523539226785";
+
+/* ========================= */
+
 const app = express();
-const PORT = process.env.PORT || 3000;
+app.get("/", (req, res) => res.send("Bot is alive!"));
+app.listen(3000, () => console.log("Web server ready"));
 
-app.get("/", (req, res) => {
-  res.status(200).send("Bot is running");
-});
-
-app.listen(PORT, () => {
-  console.log(`🌍 Web server running on port ${PORT}`);
-});
-
-// ================== TOKEN CHECK ==================
-if (!process.env.DISCORD_TOKEN) {
-  console.error("❌ DISCORD_TOKEN nije postavljen!");
-  process.exit(1);
-}
-
-// ================== CLIENT ==================
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds]
 });
 
-const punishRoleName = "Marker";
-const dataFile = "./data.json";
 let userData = {};
-
-// ================== LOAD DATA ==================
-if (fs.existsSync(dataFile)) {
-  try {
-    userData = JSON.parse(fs.readFileSync(dataFile));
-  } catch {
-    userData = {};
-  }
+if (fs.existsSync("data.json")) {
+  userData = JSON.parse(fs.readFileSync("data.json"));
 }
 
 function saveData() {
-  fs.writeFileSync(dataFile, JSON.stringify(userData, null, 2));
+  fs.writeFileSync("data.json", JSON.stringify(userData, null, 2));
 }
 
-function sendLog(guild, content) {
-  const logChannel = guild.channels.cache.find(
-    c => c.name === "mod-log"
-  );
-  if (logChannel) logChannel.send(content);
+function log(guild, message) {
+  const channel = guild.channels.cache.get(LOG_CHANNEL_ID);
+  if (channel) channel.send(message);
 }
 
-// ================== SLASH COMMANDS ==================
 const commands = [
   new SlashCommandBuilder()
-    .setName("markeri")
-    .setDescription("Dodaj Marker rolu korisniku")
+    .setName('markeri')
+    .setDescription('Postavi marker korisniku')
     .addUserOption(option =>
-      option.setName("user").setDescription("Korisnik").setRequired(true))
+      option.setName('korisnik')
+        .setDescription('Izaberi korisnika')
+        .setRequired(true))
     .addIntegerOption(option =>
-      option.setName("amount").setDescription("Koliko puta mora očistiti").setRequired(true)),
+      option.setName('kolicina')
+        .setDescription('Koliko markera treba')
+        .setRequired(true))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
-    .setName("ocisti")
-    .setDescription("Očisti jedan marker"),
+    .setName('ocisti')
+    .setDescription('Dodaj očišćeni marker'),
 
   new SlashCommandBuilder()
-    .setName("unmarkeri")
-    .setDescription("Ukloni Marker rolu")
-    .addUserOption(option =>
-      option.setName("user").setDescription("Korisnik").setRequired(true)),
+    .setName('status')
+    .setDescription('Provjeri status markera')
+];
 
-  new SlashCommandBuilder()
-    .setName("status")
-    .setDescription("Provjeri svoj napredak")
-].map(c => c.toJSON());
+const rest = new REST({ version: '10' }).setToken(TOKEN);
 
-// ================== READY ==================
-client.once("ready", async () => {
-  console.log(`🤖 Bot online kao ${client.user.tag}`);
+client.once('ready', async () => {
+  console.log(`Bot prijavljen kao ${client.user.tag}`);
 
-  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+  await rest.put(
+    Routes.applicationCommands(CLIENT_ID),
+    { body: commands }
+  );
 
-  try {
-    await rest.put(
-      Routes.applicationCommands(client.user.id),
-      { body: commands }
-    );
-    console.log("✅ Slash komande registrovane.");
-  } catch (err) {
-    console.error(err);
-  }
+  console.log("✅ Global slash komande registrovane.");
 });
 
-// ================== INTERACTIONS ==================
-client.on("interactionCreate", async interaction => {
+client.on('interactionCreate', async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
-  const guild = interaction.guild;
-  const markerRole = guild.roles.cache.find(r => r.name === punishRoleName);
+  const userId = interaction.user.id;
 
-  // ADMIN CHECK
-  if (["markeri", "unmarkeri"].includes(commandName)) {
-    if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return interaction.reply({
-        content: "❌ Nemaš dozvolu.",
-        ephemeral: true
-      });
-    }
-  }
+  if (commandName === 'markeri') {
+    const korisnik = interaction.options.getUser('korisnik');
+    const kolicina = interaction.options.getInteger('kolicina');
 
-  // ================== /markeri ==================
-  if (commandName === "markeri") {
-    const user = interaction.options.getUser("user");
-    const amount = interaction.options.getInteger("amount");
-    const member = await guild.members.fetch(user.id);
-
-    if (!markerRole) {
-      return interaction.reply({
-        content: "❌ Napravi rolu 'Marker'.",
-        ephemeral: true
-      });
-    }
-
-    await member.roles.add(markerRole);
-
-    userData[user.id] = {
+    userData[korisnik.id] = {
       current: 0,
-      required: amount
+      required: kolicina
     };
 
     saveData();
 
-    sendLog(guild, `🛑 ${user.tag} dobio Marker (${amount})`);
-
-    return interaction.reply({
-      content: `⚠️ ${user.tag} mora očistiti ${amount} puta.`,
+    await interaction.reply({
+      content: `✅ ${korisnik} treba očistiti **${kolicina}** markera.`,
       ephemeral: true
     });
+
+    log(interaction.guild, `📌 ${interaction.user.tag} postavio ${kolicina} markera za ${korisnik.tag}`);
   }
 
-  // ================== /ocisti ==================
-  if (commandName === "ocisti") {
-    const userId = interaction.user.id;
+  if (commandName === 'ocisti') {
 
-    if (!userData[userId]) {
+    if (
+      !userData[userId] ||
+      typeof userData[userId].current !== "number" ||
+      typeof userData[userId].required !== "number"
+    ) {
       return interaction.reply({
-        content: "Nemaš aktivan marker.",
+        content: "❌ Nemaš aktivan marker.",
         ephemeral: true
       });
     }
 
     userData[userId].current++;
-    saveData();
-
-    sendLog(
-      guild,
-      `🧹 ${interaction.user.tag} očistio marker (${userData[userId].current}/${userData[userId].required})`
-    );
 
     if (userData[userId].current >= userData[userId].required) {
-      const member = await guild.members.fetch(userId);
-      await member.roles.remove(markerRole);
+      log(interaction.guild, `🎉 ${interaction.user.tag} završio sve markere!`);
 
       delete userData[userId];
       saveData();
 
-      sendLog(guild, `✅ ${interaction.user.tag} završio kaznu.`);
-
       return interaction.reply({
-        content: "🎉 Kazna završena!",
+        content: "🎉 Završio si sve markere!",
         ephemeral: true
       });
     }
 
-    return interaction.reply({
+    saveData();
+
+    await interaction.reply({
       content: `🧹 Napredak: ${userData[userId].current}/${userData[userId].required}`,
       ephemeral: true
     });
   }
 
-  // ================== /unmarkeri ==================
-  if (commandName === "unmarkeri") {
-    const user = interaction.options.getUser("user");
-    const member = await guild.members.fetch(user.id);
+  if (commandName === 'status') {
 
-    if (markerRole) await member.roles.remove(markerRole);
-
-    delete userData[user.id];
-    saveData();
-
-    sendLog(guild, `🔓 ${user.tag} je oslobođen markera.`);
-
-    return interaction.reply({
-      content: `✅ ${user.tag} je oslobođen markera.`,
-      ephemeral: true
-    });
-  }
-
-  // ================== /status ==================
-  if (commandName === "status") {
-    const data = userData[interaction.user.id];
-
-    if (!data) {
+    if (
+      !userData[userId] ||
+      typeof userData[userId].current !== "number" ||
+      typeof userData[userId].required !== "number"
+    ) {
       return interaction.reply({
-        content: "Nemaš aktivan marker.",
+        content: "❌ Nemaš aktivan marker.",
         ephemeral: true
       });
     }
 
-    return interaction.reply({
-      content: `📊 Napredak: ${data.current}/${data.required}`,
+    await interaction.reply({
+      content: `📊 Trenutno stanje: ${userData[userId].current}/${userData[userId].required}`,
       ephemeral: true
     });
   }
 });
 
-// ================== LOGIN ==================
-client.login(process.env.DISCORD_TOKEN);
+client.login(TOKEN);
