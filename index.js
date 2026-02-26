@@ -13,18 +13,13 @@ const express = require("express");
    🔐 ENVIRONMENT VARIABLES
 ============================== */
 
-const TOKEN = process.env.TOKEN;
+const TOKEN = process.env.DISCORD_TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const LOG_CHANNEL_ID = "1476647523539226785";
+const ROLE_ID = "1476339229230370836"; // 🔥 STAVI MARKER ROLE ID
 
-
-const roleName = "Marker";
-const role = interaction.guild.roles.cache.get("1476339229230370836");
-
-/* ============================== */
-
-if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
-  console.error("❌ TOKEN ili CLIENT_ID nije postavljen!");
+if (!TOKEN || !CLIENT_ID) {
+  console.error("❌ DISCORD_TOKEN ili CLIENT_ID nije postavljen!");
   process.exit(1);
 }
 
@@ -41,7 +36,10 @@ app.listen(3000, () => console.log("🌍 Web server ready"));
 ============================== */
 
 const client = new Client({
-  intents: [GatewayIntentBits.Guilds]
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMembers
+  ]
 });
 
 /* ==============================
@@ -89,8 +87,6 @@ const commands = [
     .setDescription("Provjeri status markera")
 ];
 
-const rest = new REST({ version: "10" }).setToken(TOKEN);
-
 /* ==============================
    🚀 BOT READY
 ============================== */
@@ -99,10 +95,10 @@ client.once("clientReady", async () => {
   console.log(`✅ Bot online kao ${client.user.tag}`);
 
   try {
-    const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+    const rest = new REST({ version: "10" }).setToken(TOKEN);
 
     await rest.put(
-      Routes.applicationCommands(process.env.CLIENT_ID),
+      Routes.applicationCommands(CLIENT_ID),
       { body: commands }
     );
 
@@ -122,11 +118,30 @@ client.on("interactionCreate", async interaction => {
   const { commandName } = interaction;
   const userId = interaction.user.id;
 
+  const role = interaction.guild.roles.cache.get(ROLE_ID);
+
+  if (!role) {
+    return interaction.reply({
+      content: "❌ Marker rola ne postoji (pogrešan ROLE_ID).",
+      ephemeral: true
+    });
+  }
+
   /* ===== MARKERI (ADMIN) ===== */
 
   if (commandName === "markeri") {
     const korisnik = interaction.options.getUser("korisnik");
     const kolicina = interaction.options.getInteger("kolicina");
+    const member = await interaction.guild.members.fetch(korisnik.id);
+
+    try {
+      await member.roles.add(role);
+    } catch (err) {
+      return interaction.reply({
+        content: "❌ Bot nema dozvolu za dodavanje role (provjeri hijerarhiju i Manage Roles).",
+        ephemeral: true
+      });
+    }
 
     userData[korisnik.id] = {
       current: 0,
@@ -149,11 +164,7 @@ client.on("interactionCreate", async interaction => {
 
   if (commandName === "ocisti") {
 
-    if (
-      !userData[userId] ||
-      typeof userData[userId].current !== "number" ||
-      typeof userData[userId].required !== "number"
-    ) {
+    if (!userData[userId]) {
       return interaction.reply({
         content: "❌ Nemaš aktivan marker.",
         ephemeral: true
@@ -163,6 +174,15 @@ client.on("interactionCreate", async interaction => {
     userData[userId].current++;
 
     if (userData[userId].current >= userData[userId].required) {
+
+      const member = await interaction.guild.members.fetch(userId);
+
+      try {
+        await member.roles.remove(role);
+      } catch (err) {
+        console.error("Greška pri uklanjanju role:", err);
+      }
+
       log(interaction.guild,
         `🎉 ${interaction.user.tag} završio sve markere!`
       );
@@ -188,11 +208,7 @@ client.on("interactionCreate", async interaction => {
 
   if (commandName === "status") {
 
-    if (
-      !userData[userId] ||
-      typeof userData[userId].current !== "number" ||
-      typeof userData[userId].required !== "number"
-    ) {
+    if (!userData[userId]) {
       return interaction.reply({
         content: "❌ Nemaš aktivan marker.",
         ephemeral: true
@@ -211,6 +227,7 @@ client.on("interactionCreate", async interaction => {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
