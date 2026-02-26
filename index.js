@@ -19,7 +19,7 @@ const LOG_CHANNEL_ID = "1476647523539226785";
 
 /* ============================== */
 
-if (!TOKEN || !CLIENT_ID) {
+if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
   console.error("❌ TOKEN ili CLIENT_ID nije postavljen!");
   process.exit(1);
 }
@@ -204,5 +204,6 @@ client.on("interactionCreate", async interaction => {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
