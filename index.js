@@ -19,7 +19,7 @@ const CLIENT_ID = process.env.CLIENT_ID;
 const LOG_CHANNEL_ID = "1476647523539226785";
 const ROLE_ID = "1476339229230370836";
 
-const NEON_COLOR = "#8A2BE2"; // 💜 Neon Purple glavna boja
+const NEON_COLOR = "#8A2BE2"; // 💜 Neon Purple
 const NEON_ACCENT = "#00E5FF"; // 🔵 Neon Cyan
 
 if (!TOKEN || !CLIENT_ID) {
@@ -40,10 +40,7 @@ app.listen(3000, () => console.log("🌍 Web server aktivan"));
 ============================= */
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMembers
-  ]
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMembers]
 });
 
 /* ==============================
@@ -138,10 +135,7 @@ client.once("ready", async () => {
   try {
     const rest = new REST({ version: "10" }).setToken(TOKEN);
 
-    await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationCommands(CLIENT_ID), { body: commands });
 
     console.log("⚡ Komande registrovane (NEON MODE).");
   } catch (err) {
@@ -157,7 +151,7 @@ client.on("interactionCreate", async interaction => {
   if (!interaction.isChatInputCommand()) return;
 
   const { commandName } = interaction;
-  const userId = interaction.user.id;
+  const userId = interaction.user.id.toString(); // ✅ uvijek string key
 
   const role = interaction.guild.roles.cache.get(ROLE_ID);
 
@@ -169,7 +163,6 @@ client.on("interactionCreate", async interaction => {
   }
 
   /* ====== MARKERI ====== */
-
   if (commandName === "markeri") {
     const korisnik = interaction.options.getUser("korisnik");
     const kolicina = interaction.options.getInteger("kolicina");
@@ -182,7 +175,7 @@ client.on("interactionCreate", async interaction => {
       });
     }
 
-    userData[korisnik.id] = { current: 0, required: kolicina };
+    userData[korisnik.id.toString()] = { current: 0, required: kolicina };
     saveData();
 
     interaction.reply({
@@ -194,12 +187,12 @@ client.on("interactionCreate", async interaction => {
   }
 
   /* ====== UNMARKERI ====== */
-
   if (commandName === "unmarkeri") {
     const korisnik = interaction.options.getUser("korisnik");
     const member = await interaction.guild.members.fetch(korisnik.id);
 
-    if (!userData[korisnik.id]) {
+    const entry = userData[korisnik.id.toString()];
+    if (!entry) {
       return interaction.reply({
         embeds: [neonEmbed("Greška", "Korisnik nema aktivan marker.", "❌")],
         ephemeral: true
@@ -213,7 +206,7 @@ client.on("interactionCreate", async interaction => {
       });
     }
 
-    delete userData[korisnik.id];
+    delete userData[korisnik.id.toString()];
     saveData();
 
     interaction.reply({
@@ -225,17 +218,19 @@ client.on("interactionCreate", async interaction => {
   }
 
   /* ====== OCISTI ====== */
-
   if (commandName === "ocisti") {
-    if (!userData[userId]) {
-      return interaction.reply({ embeds: [neonEmbed("Nemaš marker", "Nemaš aktivan marker.")] });
+    const entry = userData[userId];
+    if (!entry) {
+      return interaction.reply({
+        embeds: [neonEmbed("Nemaš marker", "Nemaš aktivan marker.")],
+        ephemeral: true
+      });
     }
 
-    userData[userId].current++;
+    entry.current++;
 
-    if (userData[userId].current >= userData[userId].required) {
+    if (entry.current >= entry.required) {
       const member = await interaction.guild.members.fetch(userId);
-
       try { await member.roles.remove(role); } catch {}
 
       delete userData[userId];
@@ -249,14 +244,14 @@ client.on("interactionCreate", async interaction => {
     saveData();
 
     interaction.reply({
-      embeds: [progressEmbed(interaction.user, userData[userId].current, userData[userId].required)]
+      embeds: [progressEmbed(interaction.user, entry.current, entry.required)]
     });
   }
 
   /* ====== STATUS ====== */
-
   if (commandName === "status") {
-    if (!userData[userId]) {
+    const entry = userData[userId];
+    if (!entry) {
       return interaction.reply({
         embeds: [neonEmbed("Nemaš marker", "Nemaš dodijeljen marker.", "❌")],
         ephemeral: true
@@ -264,7 +259,7 @@ client.on("interactionCreate", async interaction => {
     }
 
     interaction.reply({
-      embeds: [neonEmbed("Tvoj status markera", `Progres: \`${userData[userId].current}/${userData[userId].required}\``, "📊")],
+      embeds: [neonEmbed("Tvoj status markera", `Progres: \`${entry.current}/${entry.required}\``, "📊")],
       ephemeral: true
     });
   }
