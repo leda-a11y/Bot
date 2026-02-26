@@ -21,6 +21,7 @@ const ROLE_ID = "1476339229230370836";
 
 const NEON_COLOR = "#8A2BE2"; // 💜 Neon Purple
 const NEON_ACCENT = "#00E5FF"; // 🔵 Neon Cyan
+const NEON_GIF = "https://i.imgur.com/3v5vOqi.gif"; // 🌟 Animirani neon GIF
 
 if (!TOKEN || !CLIENT_ID) {
   console.error("❌ DISCORD_TOKEN ili CLIENT_ID nije setovan!");
@@ -50,24 +51,24 @@ const client = new Client({
 function neonEmbed(title, desc, emoji = "✨") {
   return new EmbedBuilder()
     .setColor(NEON_COLOR)
-    .setAuthor({ name: "🌌 Leda Markeri — NEON System" })
+    .setAuthor({ name: "🌌 Leda Markeri — NEON System", iconURL: NEON_GIF })
     .setTitle(`${emoji} ${title}`)
     .setDescription(desc)
     .setThumbnail("https://i.imgur.com/eHl6C3S.png")
-    .setFooter({ text: "🌙 Leda Markeri • Neon Edition" })
+    .setFooter({ text: "🌙 Leda Markeri • Neon Edition", iconURL: NEON_GIF })
     .setTimestamp();
 }
 
 function progressEmbed(user, current, required) {
   return new EmbedBuilder()
     .setColor(NEON_ACCENT)
-    .setAuthor({ name: "🔧 Napredak čišćenja — Leda NEON" })
+    .setAuthor({ name: "🔧 Napredak čišćenja — Leda NEON", iconURL: NEON_GIF })
     .setDescription(`
 🌐 **Korisnik:** ${user}
 ⚡ **Progres:** \`${current}/${required}\`
 `)
     .setThumbnail("https://i.imgur.com/eHl6C3S.png")
-    .setFooter({ text: "Nastavi tako! 🔥" })
+    .setFooter({ text: "Nastavi tako! 🔥", iconURL: NEON_GIF })
     .setTimestamp();
 }
 
