@@ -1,7 +1,18 @@
-// ================== EXPRESS (za deployment) ==================
-const express = require("express");
-const app = express();
+// ================== IMPORTS ==================
+const {
+  Client,
+  GatewayIntentBits,
+  PermissionsBitField,
+  SlashCommandBuilder,
+  REST,
+  Routes
+} = require("discord.js");
 
+const express = require("express");
+const fs = require("fs");
+
+// ================== EXPRESS (Render keep alive) ==================
+const app = express();
 const PORT = process.env.PORT || 3000;
 
 app.get("/", (req, res) => {
@@ -9,24 +20,19 @@ app.get("/", (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Web server running on port ${PORT}`);
+  console.log(`🌍 Web server running on port ${PORT}`);
 });
 
-// ================== DISCORD BOT ==================
-const { Client, GatewayIntentBits, PermissionsBitField } = require("discord.js");
-const fs = require("fs");
-
-// Provjera tokena
+// ================== TOKEN CHECK ==================
 if (!process.env.DISCORD_TOKEN) {
-  console.error("❌ DISCORD_TOKEN nije postavljen u Environment Variables!");
+  console.error("❌ DISCORD_TOKEN nije postavljen!");
   process.exit(1);
 }
 
+// ================== CLIENT ==================
 const client = new Client({
   intents: [
     GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent,
     GatewayIntentBits.GuildMembers
   ]
 });
@@ -35,12 +41,11 @@ const punishRoleName = "Marker";
 const dataFile = "./data.json";
 let userData = {};
 
-// Učitavanje podataka
+// ================== LOAD DATA ==================
 if (fs.existsSync(dataFile)) {
   try {
     userData = JSON.parse(fs.readFileSync(dataFile));
-  } catch (err) {
-    console.error("Greška pri čitanju data.json:", err);
+  } catch {
     userData = {};
   }
 }
@@ -49,91 +54,147 @@ function saveData() {
   fs.writeFileSync(dataFile, JSON.stringify(userData, null, 2));
 }
 
-// Kada se bot upali
-client.once("ready", () => {
-  console.log(`🤖 Bot je online kao ${client.user.tag}`);
+function sendLog(guild, content) {
+  const logChannel = guild.channels.cache.find(
+    c => c.name === "mod-log"
+  );
+  if (logChannel) logChannel.send(content);
+}
+
+// ================== SLASH COMMANDS ==================
+const commands = [
+  new SlashCommandBuilder()
+    .setName("markeri")
+    .setDescription("Dodaj Marker rolu korisniku")
+    .addUserOption(option =>
+      option.setName("user").setDescription("Korisnik").setRequired(true))
+    .addIntegerOption(option =>
+      option.setName("amount").setDescription("Koliko puta mora očistiti").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("ocisti")
+    .setDescription("Očisti jedan marker"),
+
+  new SlashCommandBuilder()
+    .setName("unmarkeri")
+    .setDescription("Ukloni Marker rolu")
+    .addUserOption(option =>
+      option.setName("user").setDescription("Korisnik").setRequired(true)),
+
+  new SlashCommandBuilder()
+    .setName("status")
+    .setDescription("Provjeri svoj napredak")
+].map(c => c.toJSON());
+
+// ================== READY ==================
+client.once("ready", async () => {
+  console.log(`🤖 Bot online kao ${client.user.tag}`);
+
+  const rest = new REST({ version: "10" }).setToken(process.env.DISCORD_TOKEN);
+
+  try {
+    await rest.put(
+      Routes.applicationCommands(client.user.id),
+      { body: commands }
+    );
+    console.log("✅ Slash komande registrovane.");
+  } catch (err) {
+    console.error(err);
+  }
 });
 
-// ================== KOMANDE ==================
-client.on("messageCreate", async (message) => {
-  if (!message.guild) return;
-  if (message.author.bot) return;
+// ================== INTERACTIONS ==================
+client.on("interactionCreate", async interaction => {
+  if (!interaction.isChatInputCommand()) return;
 
-  const args = message.content.trim().split(/\s+/);
-  const command = args[0].toLowerCase();
+  const { commandName } = interaction;
+  const guild = interaction.guild;
+  const markerRole = guild.roles.cache.find(r => r.name === punishRoleName);
 
-  // ================== !markeri ==================
-  if (command === "!markeri") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("❌ Nemaš dozvolu.");
+  // ADMIN CHECK
+  if (["markeri", "unmarkeri"].includes(commandName)) {
+    if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
+      return interaction.reply({ content: "❌ Nemaš dozvolu.", ephemeral: true });
     }
+  }
 
-    const member = message.mentions.members.first();
-    const amount = parseInt(args[2]);
+  // ================== /markeri ==================
+  if (commandName === "markeri") {
+    const user = interaction.options.getUser("user");
+    const amount = interaction.options.getInteger("amount");
+    const member = await guild.members.fetch(user.id);
 
-    if (!member) return message.reply("Taguj člana.");
-    if (!amount || amount < 1) return message.reply("Upiši validan broj.");
+    if (!markerRole)
+      return interaction.reply("❌ Napravi rolu 'Marker'.");
 
-    const role = message.guild.roles.cache.find(r => r.name === punishRoleName);
-    if (!role) return message.reply("Napravi rolu 'Marker'.");
+    await member.roles.add(markerRole);
 
-    await member.roles.add(role);
-
-    userData[member.id] = {
+    userData[user.id] = {
       current: 0,
       required: amount
     };
 
     saveData();
 
-    return message.channel.send(
-      `⚠️ ${member.user.tag} mora očistiti ${amount} puta.`
-    );
+    sendLog(guild, `🛑 ${user.tag} dobio Marker (${amount})`);
+
+    return interaction.reply(`⚠️ ${user.tag} mora očistiti ${amount} puta.`);
   }
 
-  // ================== !unmarkeri ==================
-  if (command === "!unmarkeri") {
-    if (!message.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return message.reply("❌ Nemaš dozvolu.");
-    }
+  // ================== /ocisti ==================
+  if (commandName === "ocisti") {
+    const userId = interaction.user.id;
 
-    const member = message.mentions.members.first();
-    if (!member) return message.reply("Taguj člana.");
+    if (!userData[userId])
+      return interaction.reply({ content: "Nemaš aktivan marker.", ephemeral: true });
 
-    const role = message.guild.roles.cache.find(r => r.name === punishRoleName);
-    if (role) await member.roles.remove(role);
-
-    delete userData[member.id];
+    userData[userId].current++;
     saveData();
 
-    return message.channel.send(
-      `✅ ${member.user.tag} je oslobođen markera.`
-    );
-  }
+    sendLog(guild, `🧹 ${interaction.user.tag} očistio marker (${userData[userId].current}/${userData[userId].required})`);
 
-  // ================== !ocisti ==================
-  if (command === "!ocisti") {
-    const member = message.member;
+    if (userData[userId].current >= userData[userId].required) {
+      const member = await guild.members.fetch(userId);
+      await member.roles.remove(markerRole);
 
-    if (!member.roles.cache.some(role => role.name === punishRoleName)) return;
-    if (!userData[member.id]) return;
-
-    userData[member.id].current++;
-    saveData();
-
-    await message.channel.send(
-      `🧹 Napredak: ${userData[member.id].current}/${userData[member.id].required}`
-    );
-
-    if (userData[member.id].current >= userData[member.id].required) {
-      const role = message.guild.roles.cache.find(r => r.name === punishRoleName);
-      if (role) await member.roles.remove(role);
-
-      delete userData[member.id];
+      delete userData[userId];
       saveData();
 
-      await message.channel.send("🎉 Kazna završena. Vraćen ti je pristup.");
+      sendLog(guild, `✅ ${interaction.user.tag} završio kaznu.`);
+
+      return interaction.reply("🎉 Kazna završena!");
     }
+
+    return interaction.reply(
+      `🧹 Napredak: ${userData[userId].current}/${userData[userId].required}`
+    );
+  }
+
+  // ================== /unmarkeri ==================
+  if (commandName === "unmarkeri") {
+    const user = interaction.options.getUser("user");
+    const member = await guild.members.fetch(user.id);
+
+    if (markerRole) await member.roles.remove(markerRole);
+
+    delete userData[user.id];
+    saveData();
+
+    sendLog(guild, `🔓 ${user.tag} je oslobođen markera.`);
+
+    return interaction.reply(`✅ ${user.tag} je oslobođen markera.`);
+  }
+
+  // ================== /status ==================
+  if (commandName === "status") {
+    const data = userData[interaction.user.id];
+
+    if (!data)
+      return interaction.reply({ content: "Nemaš aktivan marker.", ephemeral: true });
+
+    return interaction.reply(
+      `📊 Napredak: ${data.current}/${data.required}`
+    );
   }
 });
 
