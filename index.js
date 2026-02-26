@@ -17,6 +17,10 @@ const TOKEN = process.env.TOKEN;
 const CLIENT_ID = process.env.CLIENT_ID;
 const LOG_CHANNEL_ID = "1476647523539226785";
 
+
+const roleName = "Marker";
+const role = interaction.guild.roles.cache.get("1476339229230370836");
+
 /* ============================== */
 
 if (!process.env.DISCORD_TOKEN || !process.env.CLIENT_ID) {
@@ -207,6 +211,7 @@ client.on("interactionCreate", async interaction => {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
