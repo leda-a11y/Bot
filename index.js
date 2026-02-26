@@ -85,6 +85,16 @@ const commands = [
   new SlashCommandBuilder()
     .setName("status")
     .setDescription("Provjeri status markera")
+  
+  new SlashCommandBuilder()
+  .setName("unmarkeri")
+  .setDescription("Ukloni marker korisniku")
+  .addUserOption(option =>
+    option.setName("korisnik")
+      .setDescription("Izaberi korisnika")
+      .setRequired(true))
+  .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
 ];
 
 /* ==============================
@@ -191,18 +201,54 @@ client.on("interactionCreate", async interaction => {
       saveData();
 
       return interaction.reply({
-        content: "🎉 Završio si sve markere!",
-        ephemeral: true
+      content: `🎉 ${interaction.user} je završio sve markere!`
       });
+
     }
 
     saveData();
 
     await interaction.reply({
-      content: `🧹 Napredak: ${userData[userId].current}/${userData[userId].required}`,
+    content: `🧹 ${interaction.user} napredak: ${userData[userId].current}/${userData[userId].required}`
+    });
+
+  }
+
+  /* ===== UNMARKERI (ADMIN) ===== */
+
+if (commandName === "unmarkeri") {
+
+  const korisnik = interaction.options.getUser("korisnik");
+  const member = await interaction.guild.members.fetch(korisnik.id);
+
+  if (!userData[korisnik.id]) {
+    return interaction.reply({
+      content: "❌ Taj korisnik nema aktivan marker.",
       ephemeral: true
     });
   }
+
+  try {
+    await member.roles.remove(role);
+  } catch (err) {
+    return interaction.reply({
+      content: "❌ Bot nema dozvolu za uklanjanje role.",
+      ephemeral: true
+    });
+  }
+
+  delete userData[korisnik.id];
+  saveData();
+
+  await interaction.reply({
+    content: `✅ Marker uklonjen za ${korisnik}.`,
+    ephemeral: true
+  });
+
+  log(interaction.guild,
+    `🗑️ ${interaction.user.tag} uklonio marker za ${korisnik.tag}`
+  );
+}
 
   /* ===== STATUS ===== */
 
@@ -227,6 +273,7 @@ client.on("interactionCreate", async interaction => {
 ============================== */
 
 client.login(process.env.DISCORD_TOKEN);
+
 
 
 
