@@ -11,7 +11,7 @@ const {
 const express = require("express");
 const fs = require("fs");
 
-// ================== EXPRESS (Render keep alive) ==================
+// ================== EXPRESS ==================
 const app = express();
 const PORT = process.env.PORT || 3000;
 
@@ -114,7 +114,10 @@ client.on("interactionCreate", async interaction => {
   // ADMIN CHECK
   if (["markeri", "unmarkeri"].includes(commandName)) {
     if (!interaction.member.permissions.has(PermissionsBitField.Flags.ManageRoles)) {
-      return interaction.reply({ content: "❌ Nemaš dozvolu.", ephemeral: true });
+      return interaction.reply({
+        content: "❌ Nemaš dozvolu.",
+        ephemeral: true
+      });
     }
   }
 
@@ -124,8 +127,12 @@ client.on("interactionCreate", async interaction => {
     const amount = interaction.options.getInteger("amount");
     const member = await guild.members.fetch(user.id);
 
-    if (!markerRole)
-      return interaction.reply("❌ Napravi rolu 'Marker'.");
+    if (!markerRole) {
+      return interaction.reply({
+        content: "❌ Napravi rolu 'Marker'.",
+        ephemeral: true
+      });
+    }
 
     await member.roles.add(markerRole);
 
@@ -138,20 +145,30 @@ client.on("interactionCreate", async interaction => {
 
     sendLog(guild, `🛑 ${user.tag} dobio Marker (${amount})`);
 
-    return interaction.reply(`⚠️ ${user.tag} mora očistiti ${amount} puta.`);
+    return interaction.reply({
+      content: `⚠️ ${user.tag} mora očistiti ${amount} puta.`,
+      ephemeral: true
+    });
   }
 
   // ================== /ocisti ==================
   if (commandName === "ocisti") {
     const userId = interaction.user.id;
 
-    if (!userData[userId])
-      return interaction.reply({ content: "Nemaš aktivan marker.", ephemeral: true });
+    if (!userData[userId]) {
+      return interaction.reply({
+        content: "Nemaš aktivan marker.",
+        ephemeral: true
+      });
+    }
 
     userData[userId].current++;
     saveData();
 
-    sendLog(guild, `🧹 ${interaction.user.tag} očistio marker (${userData[userId].current}/${userData[userId].required})`);
+    sendLog(
+      guild,
+      `🧹 ${interaction.user.tag} očistio marker (${userData[userId].current}/${userData[userId].required})`
+    );
 
     if (userData[userId].current >= userData[userId].required) {
       const member = await guild.members.fetch(userId);
@@ -162,12 +179,16 @@ client.on("interactionCreate", async interaction => {
 
       sendLog(guild, `✅ ${interaction.user.tag} završio kaznu.`);
 
-      return interaction.reply("🎉 Kazna završena!");
+      return interaction.reply({
+        content: "🎉 Kazna završena!",
+        ephemeral: true
+      });
     }
 
-    return interaction.reply(
-      `🧹 Napredak: ${userData[userId].current}/${userData[userId].required}`
-    );
+    return interaction.reply({
+      content: `🧹 Napredak: ${userData[userId].current}/${userData[userId].required}`,
+      ephemeral: true
+    });
   }
 
   // ================== /unmarkeri ==================
@@ -182,19 +203,27 @@ client.on("interactionCreate", async interaction => {
 
     sendLog(guild, `🔓 ${user.tag} je oslobođen markera.`);
 
-    return interaction.reply(`✅ ${user.tag} je oslobođen markera.`);
+    return interaction.reply({
+      content: `✅ ${user.tag} je oslobođen markera.`,
+      ephemeral: true
+    });
   }
 
   // ================== /status ==================
   if (commandName === "status") {
     const data = userData[interaction.user.id];
 
-    if (!data)
-      return interaction.reply({ content: "Nemaš aktivan marker.", ephemeral: true });
+    if (!data) {
+      return interaction.reply({
+        content: "Nemaš aktivan marker.",
+        ephemeral: true
+      });
+    }
 
-    return interaction.reply(
-      `📊 Napredak: ${data.current}/${data.required}`
-    );
+    return interaction.reply({
+      content: `📊 Napredak: ${data.current}/${data.required}`,
+      ephemeral: true
+    });
   }
 });
 
