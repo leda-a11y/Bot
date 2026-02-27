@@ -270,4 +270,33 @@ client.on("interactionCreate", async interaction => {
    🔐 LOGIN
 ============================= */
 
+/* ==============================
+   🚨 GLOBAL ERROR HANDLERI
+============================= */
+
+process.on("unhandledRejection", error => {
+  console.error("❌ UNHANDLED REJECTION:", error);
+});
+
+process.on("uncaughtException", error => {
+  console.error("❌ UNCAUGHT EXCEPTION:", error);
+});
+
+client.on("error", error => {
+  console.error("❌ CLIENT ERROR:", error);
+});
+
+client.on("shardError", error => {
+  console.error("❌ SHARD ERROR:", error);
+});
+
+/* ==============================
+   🔐 LOGIN
+============================= */
+
+client.login(TOKEN)
+  .then(() => console.log("✅ LOGIN REQUEST POSLAN DISCORDU"))
+  .catch(err => console.error("❌ LOGIN ERROR:", err));
+
 client.login(process.env.DISCORD_TOKEN);
+
