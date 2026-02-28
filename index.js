@@ -26,7 +26,8 @@ if (!TOKEN || !CLIENT_ID) {
 
 const app = express();
 app.get("/", (req, res) => res.send("Leda Markeri bot radi 🔥"));
-app.listen(3000, () => console.log("🌍 Web server aktivan"));
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log("🌍 Web server aktivan na portu", PORT));
 
 /* ==============================
    🤖 DISCORD CLIENT
@@ -214,3 +215,4 @@ console.log("TOKEN:", TOKEN ? "OK" : "EMPTY");
 client.login(TOKEN)
   .then(() => console.log("✅ LOGIN REQUEST POSLAN DISCORDU"))
   .catch(err => console.error("❌ LOGIN ERROR:", err));
+
